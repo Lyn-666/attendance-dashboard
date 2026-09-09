@@ -2,7 +2,7 @@
 
 A lightweight classroom attendance tool built with **Google Apps Script + Google Sheets**.
 
-It provides a teacher dashboard with a short-lived dynamic QR code and a student check-in page.
+It provides a teacher dashboard with a short-lived dynamic QR code, a student check-in page, CSV export, and an optional installable PWA launcher for teachers.
 
 ## Features
 
@@ -17,6 +17,7 @@ It provides a teacher dashboard with a short-lived dynamic QR code and a student
 - Download current session attendance as CSV while attendance is open
 - After closing attendance, download the most recent session as CSV
 - Open the backing Google Sheet directly from the teacher dashboard
+- Optional installable **PWA teacher launcher** hosted with GitHub Pages
 - Google Sheet stores:
   - Timestamp
   - Name
@@ -28,8 +29,12 @@ It provides a teacher dashboard with a short-lived dynamic QR code and a student
 - `Code.gs` — Google Apps Script backend
 - `Index.html` — teacher dashboard and student check-in UI
 - `appsscript.json` — Apps Script project manifest
+- `docs/index.html` — installable PWA launcher
+- `docs/manifest.webmanifest` — PWA manifest
+- `docs/service-worker.js` — PWA service worker
+- `docs/icon.svg` — app icon
 
-## Setup
+## Apps Script setup
 
 1. Create or open the Google Sheet you want to use for attendance.
 2. In the Sheet, open **Extensions → Apps Script**.
@@ -61,8 +66,6 @@ Add `?teacher=1` to the Web App URL:
 https://script.google.com/.../exec?teacher=1
 ```
 
-Bookmark this link for classroom use.
-
 The teacher workflow is:
 
 ```text
@@ -77,6 +80,41 @@ Open teacher dashboard
 ```
 
 The teacher dashboard also includes an **Open Google Sheet** button for viewing the full attendance history.
+
+## Installable teacher app (PWA)
+
+The `docs/` folder contains a small Progressive Web App launcher. It does not store attendance data. It simply remembers the teacher's deployed Apps Script dashboard URL in that browser and opens the dashboard in an app-like window.
+
+### Enable GitHub Pages
+
+In the GitHub repository:
+
+1. Open **Settings → Pages**.
+2. Under **Build and deployment**, choose **Deploy from a branch**.
+3. Select branch **main** and folder **/docs**.
+4. Save.
+5. Wait for GitHub Pages to publish the site.
+
+The launcher URL will normally be:
+
+```text
+https://lyn-666.github.io/attendance-dashboard/
+```
+
+### First-time PWA setup
+
+1. Open the GitHub Pages launcher.
+2. Paste your deployed teacher URL ending in `/exec?teacher=1`.
+3. Click **Save & Open**.
+4. In a supported browser, choose **Install App** when offered, or use the browser's install/add-to-home-screen action.
+
+After that, the teacher can launch **Attendance Dashboard** from the desktop, taskbar, Start menu, or phone home screen like a normal app.
+
+### Important PWA note
+
+The PWA shell is hosted on GitHub Pages, while the real teacher dashboard is hosted by Google Apps Script. If your institution blocks Google authentication inside an iframe or blocks third-party cookies, use the Apps Script teacher URL directly instead. The core attendance system does not depend on the PWA launcher.
+
+The service worker caches only the PWA shell assets. The attendance dashboard itself remains online-only so the teacher always sees live session state.
 
 ## Student workflow
 
@@ -137,6 +175,8 @@ If you change the QR interval, update both files so the UI and backend stay sync
 Avoid committing student attendance data to this repository. Attendance records should remain in the private Google Sheet.
 
 If this repository is public, do not add Spreadsheet IDs, deployment secrets, student names, student IDs, or exported attendance records.
+
+The PWA saves the teacher Web App URL only in browser `localStorage`; it is not committed back to this repository.
 
 ## Notes
 
