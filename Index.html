@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #202124;
+    }
+    .page {
+      max-width: 620px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.10);
+      text-align: center;
+    }
+    h1 { margin-top: 0; }
+    .status {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    .status.open { background: #e6f4ea; color: #137333; }
+    .status.closed { background: #fce8e6; color: #c5221f; }
+    #qrcode {
+      display: flex;
+      justify-content: center;
+      margin: 24px 0;
+    }
+    .count {
+      font-size: 30px;
+      font-weight: bold;
+      margin: 16px 0;
+    }
+    .small {
+      color: #5f6368;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 14px;
+      margin: 8px 0;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid #dadce0;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .primary { background: #1a73e8; color: white; }
+    .danger { background: #d93025; color: white; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .success {
+      color: #137333;
+      font-weight: bold;
+      margin-top: 18px;
+    }
+    .error {
+      color: #c5221f;
+      font-weight: bold;
+      margin-top: 18px;
+    }
+    #countdown {
+      font-size: 22px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="card">
+    <div id="teacherPage" style="display:none">
+      <h1>Class Attendance</h1>
+      <div id="teacherStatus" class="status closed">CLOSED</div>
+
+      <div id="closedView">
+        <p>Attendance is currently closed.</p>
+        <button id="startButton" class="primary" onclick="startAttendance()">Start Attendance</button>
+      </div>
+
+      <div id="openView" style="display:none">
+        <p id="sessionName" class="small"></p>
+        <div id="qrcode"></div>
+        <p>Refreshing in <span id="countdown">15</span> seconds</p>
+        <div class="count">Checked in: <span id="attendanceCount">0</span></div>
+        <button id="closeButton" class="danger" onclick="closeAttendanceNow()">Close Attendance</button>
+      </div>
+
+      <div id="teacherMessage"></div>
+    </div>
+
+    <div id="studentPage" style="display:none">
+      <h1>Attendance Check-In</h1>
+      <div id="scanMessage">Verifying QR code...</div>
+
+      <div id="attendanceForm" style="display:none">
+        <p id="studentSession" class="small"></p>
+        <input id="name" placeholder="Name">
+        <input id="studentId" placeholder="Student ID">
+        <button id="submitButton" class="primary" onclick="submitForm()">Check In</button>
+      </div>
+
+      <div id="result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const token = '<?= token ?>';
+const slot = '<?= slot ?>';
+const teacher = '<?= teacher ?>';
+
+const QR_INTERVAL_MS = 15000;
+const HEARTBEAT_INTERVAL_MS = 5000;
+
+let ticket = '';
+let lastSlot = null;
+let qrRefreshTimer = null;
+let heartbeatTimer = null;
+
+if (teacher === '1') {
+  document.getElementById('teacherPage').style.display = 'block';
+  loadTeacherState();
+} else if (token) {
+  document.getElementById('studentPage').style.display = 'block';
+  validateStudentQR();
+} else {
+  document.getElementById('studentPage').style.display = 'block';
+  const message = document.getElementById('scanMessage');
+  message.className = 'error';
+  message.innerText = 'Please scan the attendance QR code.';
+}
+
+function loadTeacherState() {
+  google.script.run
+    .withSuccessHandler(function(state) {
+      if (state.status === 'OPEN') {
+        showOpenState(state.sessionId, state.count);
+        startTeacherTimers();
+      } else {
+        showClosedState();
+      }
+    })
+    .getTeacherState();
+}
+
+function startAttendance() {
+  const button = document.getElementById('startButton');
+  button.disabled = true;
+  button.innerText = 'Starting...';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      showOpenState(result.sessionId, 0);
+      startTeacherTimers();
+    })
+    .withFailureHandler(function(error) {
+      button.disabled = false;
+      button.innerText = 'Start Attendance';
+      showTeacherError(error.message);
+    })
+    .openAttendance();
+}
+
+function closeAttendanceNow() {
+  const button = document.getElementById('closeButton');
+  button.disabled = true;
+  button.innerText = 'Closing...';
+
+  google.script.run
+    .withSuccessHandler(function() {
+      stopTeacherTimers();
+      showClosedState();
+    })
+    .withFailureHandler(function(error) {
+      button.disabled = false;
+      button.innerText = 'Close Attendance';
+      showTeacherError(error.message);
+    })
+    .closeAttendance();
+}
+
+function showOpenState(sessionId, count) {
+  document.getElementById('teacherStatus').className = 'status open';
+  document.getElementById('teacherStatus').innerText = 'OPEN';
+  document.getElementById('closedView').style.display = 'none';
+  document.getElementById('openView').style.display = 'block';
+  document.getElementById('sessionName').innerText = 'Session: ' + sessionId;
+  document.getElementById('attendanceCount').innerText = count || 0;
+  document.getElementById('closeButton').disabled = false;
+  document.getElementById('closeButton').innerText = 'Close Attendance';
+  document.getElementById('teacherMessage').innerText = '';
+  refreshQR();
+}
+
+function showClosedState() {
+  document.getElementById('teacherStatus').className = 'status closed';
+  document.getElementById('teacherStatus').innerText = 'CLOSED';
+  document.getElementById('openView').style.display = 'none';
+  document.getElementById('closedView').style.display = 'block';
+
+  const button = document.getElementById('startButton');
+  button.disabled = false;
+  button.innerText = 'Start Attendance';
+
+  document.getElementById('qrcode').innerHTML = '';
+  lastSlot = null;
+}
+
+function startTeacherTimers() {
+  stopTeacherTimers();
+  sendHeartbeat();
+  refreshQR();
+  heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+  qrRefreshTimer = setInterval(refreshQR, 1000);
+}
+
+function stopTeacherTimers() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+  if (qrRefreshTimer) {
+    clearInterval(qrRefreshTimer);
+    qrRefreshTimer = null;
+  }
+}
+
+function sendHeartbeat() {
+  google.script.run.teacherHeartbeat();
+}
+
+function refreshQR() {
+  google.script.run
+    .withSuccessHandler(updateQR)
+    .withFailureHandler(function() {
+      showTeacherError('Connection error');
+    })
+    .getDisplayState();
+}
+
+function updateQR(data) {
+  if (data.status !== 'OPEN') {
+    stopTeacherTimers();
+    showClosedState();
+    return;
+  }
+
+  document.getElementById('attendanceCount').innerText = data.count;
+  document.getElementById('sessionName').innerText = 'Session: ' + data.sessionId;
+
+  if (lastSlot !== data.slot) {
+    lastSlot = data.slot;
+    const qrContainer = document.getElementById('qrcode');
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: data.url,
+      width: 320,
+      height: 320
+    });
+  }
+
+  const now = Date.now();
+  const elapsed = now % QR_INTERVAL_MS;
+  let remaining = Math.ceil((QR_INTERVAL_MS - elapsed) / 1000);
+  if (remaining < 1) remaining = 1;
+  document.getElementById('countdown').innerText = remaining;
+}
+
+function showTeacherError(message) {
+  const box = document.getElementById('teacherMessage');
+  box.className = 'error';
+  box.innerText = message;
+}
+
+function validateStudentQR() {
+  google.script.run
+    .withSuccessHandler(handleValidation)
+    .withFailureHandler(function() {
+      const message = document.getElementById('scanMessage');
+      message.className = 'error';
+      message.innerText = 'Unable to verify QR code.';
+    })
+    .validateScan(token, slot);
+}
+
+function handleValidation(result) {
+  const message = document.getElementById('scanMessage');
+
+  if (!result.valid) {
+    message.className = 'error';
+    message.innerText = result.message;
+    return;
+  }
+
+  ticket = result.ticket;
+  message.className = 'success';
+  message.innerText = 'QR verified ✓';
+  document.getElementById('studentSession').innerText = 'Session verified';
+  document.getElementById('attendanceForm').style.display = 'block';
+}
+
+function submitForm() {
+  const name = document.getElementById('name').value;
+  const studentId = document.getElementById('studentId').value;
+  const button = document.getElementById('submitButton');
+
+  button.disabled = true;
+  button.innerText = 'Submitting...';
+
+  google.script.run
+    .withSuccessHandler(showResult)
+    .withFailureHandler(function() {
+      button.disabled = false;
+      button.innerText = 'Check In';
+      const box = document.getElementById('result');
+      box.className = 'error';
+      box.innerText = 'Unable to submit attendance.';
+    })
+    .submitAttendance(ticket, name, studentId);
+}
+
+function showResult(result) {
+  const box = document.getElementById('result');
+  const button = document.getElementById('submitButton');
+
+  if (result.success) {
+    box.className = 'success';
+    box.innerText = '✓ ' + result.message;
+    document.getElementById('attendanceForm').style.display = 'none';
+  } else {
+    button.disabled = false;
+    button.innerText = 'Check In';
+    box.className = 'error';
+    box.innerText = result.message;
+  }
+}
+</script>
+</body>
+</html>
