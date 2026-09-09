@@ -2,18 +2,23 @@
   "manifest_version": 3,
   "name": "Attendance Dashboard Launcher",
   "version": "1.0.0",
-  "description": "One-click launcher for the teacher attendance QR dashboard backed by Google Apps Script and Google Sheets.",
-  "permissions": ["storage", "tabs"],
-  "host_permissions": [
-    "https://script.google.com/*",
-    "https://docs.google.com/forms/*",
-    "https://docs.google.com/spreadsheets/*"
-  ],
+  "description": "One-click launcher for a teacher attendance QR dashboard backed by Google Apps Script and Google Sheets.",
+  "permissions": ["storage"],
   "background": {
     "service_worker": "background.js"
   },
   "options_page": "options.html",
   "action": {
-    "default_title": "Open Attendance Dashboard"
+    "default_title": "Open Attendance Dashboard",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }
