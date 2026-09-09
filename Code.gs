@@ -61,11 +61,17 @@ function doGet(e) {
 function getTeacherState() {
   const props = PropertiesService.getScriptProperties();
   const active = isAttendanceActive_();
+  const currentSession = props.getProperty('SESSION_ID') || '';
+  const lastSession = props.getProperty('LAST_SESSION_ID') || '';
+  const ss = getSS_();
 
   return {
     status: active ? 'OPEN' : 'CLOSED',
-    sessionId: props.getProperty('SESSION_ID') || '',
-    count: active ? getAttendanceCount_() : 0
+    sessionId: currentSession,
+    count: active && currentSession ? getAttendanceCountForSession_(currentSession) : 0,
+    lastSessionId: lastSession,
+    lastCount: lastSession ? getAttendanceCountForSession_(lastSession) : 0,
+    sheetUrl: ss.getUrl()
   };
 }
 
@@ -82,7 +88,6 @@ function openAttendance() {
   }
 
   const timezone = Session.getScriptTimeZone();
-
   const sessionId =
     'CLASS-' +
     Utilities.formatDate(
@@ -103,11 +108,20 @@ function openAttendance() {
 
 function closeAttendance() {
   const props = PropertiesService.getScriptProperties();
+  const currentSession = props.getProperty('SESSION_ID') || '';
+
+  if (currentSession) {
+    props.setProperty('LAST_SESSION_ID', currentSession);
+  }
 
   props.setProperty('STATUS', 'CLOSED');
   props.deleteProperty('LAST_HEARTBEAT');
 
-  return { success: true };
+  return {
+    success: true,
+    lastSessionId: currentSession,
+    lastCount: currentSession ? getAttendanceCountForSession_(currentSession) : 0
+  };
 }
 
 function teacherHeartbeat() {
@@ -159,7 +173,7 @@ function getDisplayState() {
     sessionId: sessionId,
     slot: slot,
     url: url,
-    count: getAttendanceCount_()
+    count: getAttendanceCountForSession_(sessionId)
   };
 }
 
@@ -279,7 +293,6 @@ function submitAttendance(ticket, name, studentId) {
 
   try {
     lock.waitLock(10000);
-
     const data = sheet.getDataRange().getValues();
 
     for (let i = 1; i < data.length; i++) {
@@ -316,10 +329,72 @@ function submitAttendance(ticket, name, studentId) {
   }
 }
 
-function getAttendanceCount_() {
+function getCurrentSessionCSV() {
   const props = PropertiesService.getScriptProperties();
-  const sessionId = props.getProperty('SESSION_ID');
+  const sessionId = props.getProperty('SESSION_ID') || '';
+  return buildSessionCSV_(sessionId);
+}
 
+function getLastSessionCSV() {
+  const props = PropertiesService.getScriptProperties();
+  const sessionId = props.getProperty('LAST_SESSION_ID') || '';
+  return buildSessionCSV_(sessionId);
+}
+
+function buildSessionCSV_(sessionId) {
+  if (!sessionId) {
+    return {
+      success: false,
+      message: 'No attendance session found.'
+    };
+  }
+
+  const ss = getSS_();
+  const sheet = ss.getSheetByName(ATTENDANCE_SHEET);
+
+  if (!sheet) {
+    return {
+      success: false,
+      message: 'Attendance sheet not found.'
+    };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const rows = [['Timestamp', 'Name', 'Student ID', 'Session ID']];
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][3]) === sessionId) {
+      rows.push(data[i]);
+    }
+  }
+
+  const timezone = Session.getScriptTimeZone();
+  const csv = rows.map(function(row) {
+    return row.map(function(value) {
+      let text = value;
+
+      if (value instanceof Date) {
+        text = Utilities.formatDate(
+          value,
+          timezone,
+          'yyyy-MM-dd HH:mm:ss'
+        );
+      }
+
+      text = String(text).replace(/"/g, '""');
+      return '"' + text + '"';
+    }).join(',');
+  }).join('\n');
+
+  return {
+    success: true,
+    csv: csv,
+    filename: sessionId + '-attendance.csv',
+    count: Math.max(rows.length - 1, 0)
+  };
+}
+
+function getAttendanceCountForSession_(sessionId) {
   if (!sessionId) {
     return 0;
   }
