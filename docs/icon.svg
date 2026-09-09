@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Attendance Dashboard</title>
+  <desc id="desc">A clipboard with a check mark</desc>
+  <rect width="512" height="512" rx="112" fill="#1a73e8"/>
+  <rect x="116" y="104" width="280" height="320" rx="42" fill="#ffffff"/>
+  <rect x="190" y="74" width="132" height="70" rx="28" fill="#d2e3fc"/>
+  <path d="M178 278l58 58 104-126" fill="none" stroke="#137333" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
