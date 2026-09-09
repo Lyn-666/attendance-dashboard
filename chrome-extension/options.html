@@ -14,35 +14,40 @@
     .hint{font-size:13px;color:#6f7378;margin-top:7px}
     .row{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
     button{border:0;border-radius:10px;padding:12px 16px;font-size:15px;font-weight:700;cursor:pointer}
-    .primary{background:#1a73e8;color:#fff}.secondary{background:#eef3f8;color:#174ea6}
+    .primary{background:#1a73e8;color:#fff}.secondary{background:#eef3f8;color:#174ea6}.danger{background:#fce8e6;color:#b3261e}
     #status{margin-top:16px;font-weight:650}.ok{color:#137333}.error{color:#c5221f}
+    .privacy{margin-top:28px;padding-top:20px;border-top:1px solid #e0e0e0;font-size:13px;color:#5f6368}
   </style>
 </head>
 <body>
 <main>
   <div class="card">
     <h1>Attendance Dashboard Setup</h1>
-    <p>This is a one-time setup. After saving, clicking the Chrome extension icon opens the teacher QR dashboard directly.</p>
+    <p>Configure the extension once. After saving, clicking the Chrome toolbar icon opens the teacher QR dashboard directly.</p>
 
     <label for="teacherUrl">Teacher dashboard URL</label>
-    <input id="teacherUrl" type="url" placeholder="https://script.google.com/.../exec?teacher=1">
-    <div class="hint">Use the deployed Apps Script <strong>/exec</strong> URL. The extension adds <strong>?teacher=1</strong> automatically.</div>
+    <input id="teacherUrl" type="url" autocomplete="off" placeholder="https://script.google.com/.../exec?teacher=1">
+    <div class="hint">Required. Use the deployed Google Apps Script <strong>/exec</strong> URL. The extension adds <strong>?teacher=1</strong> automatically.</div>
 
-    <label for="formEditUrl">Google Form edit URL (optional)</label>
-    <input id="formEditUrl" type="url" placeholder="https://docs.google.com/forms/d/.../edit">
-    <div class="hint">Saved for quick access from the extension setup page.</div>
+    <label for="formEditUrl">Google Form URL</label>
+    <input id="formEditUrl" type="url" autocomplete="off" placeholder="https://docs.google.com/forms/d/.../edit">
+    <div class="hint">Optional shortcut to the teacher's Google Form.</div>
 
-    <label for="sheetUrl">Google Sheet URL (optional)</label>
-    <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
-    <div class="hint">The teacher dashboard already has an Open Google Sheet button when its Apps Script project is bound to the correct Sheet.</div>
+    <label for="sheetUrl">Google Sheet URL</label>
+    <input id="sheetUrl" type="url" autocomplete="off" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+    <div class="hint">Optional shortcut to the linked response/attendance Sheet.</div>
 
     <div class="row">
       <button id="save" class="primary">Save settings</button>
-      <button id="capture" class="secondary">Use current Google tab</button>
       <button id="openDashboard" class="secondary">Open dashboard</button>
+      <button id="openForm" class="secondary">Open form</button>
+      <button id="openSheet" class="secondary">Open sheet</button>
+      <button id="clear" class="danger">Clear saved settings</button>
     </div>
 
     <div id="status" aria-live="polite"></div>
+
+    <div class="privacy">Saved URLs are stored in Chrome Sync storage. The extension does not read or upload student attendance data.</div>
   </div>
 </main>
 <script src="options.js"></script>
