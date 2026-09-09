@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Attendance Dashboard Setup</title>
+  <style>
+    body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f6f8;color:#202124;margin:0}
+    main{max-width:720px;margin:40px auto;padding:24px}
+    .card{background:#fff;border-radius:18px;padding:28px;box-shadow:0 8px 28px rgba(0,0,0,.10)}
+    h1{margin-top:0} p{color:#5f6368;line-height:1.5}
+    label{display:block;font-weight:700;margin:22px 0 8px}
+    input{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #c9cdd2;border-radius:10px;font-size:15px}
+    .hint{font-size:13px;color:#6f7378;margin-top:7px}
+    .row{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+    button{border:0;border-radius:10px;padding:12px 16px;font-size:15px;font-weight:700;cursor:pointer}
+    .primary{background:#1a73e8;color:#fff}.secondary{background:#eef3f8;color:#174ea6}
+    #status{margin-top:16px;font-weight:650}.ok{color:#137333}.error{color:#c5221f}
+  </style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Attendance Dashboard Setup</h1>
+    <p>This is a one-time setup. After saving, clicking the Chrome extension icon opens the teacher QR dashboard directly.</p>
+
+    <label for="teacherUrl">Teacher dashboard URL</label>
+    <input id="teacherUrl" type="url" placeholder="https://script.google.com/.../exec?teacher=1">
+    <div class="hint">Use the deployed Apps Script <strong>/exec</strong> URL. The extension adds <strong>?teacher=1</strong> automatically.</div>
+
+    <label for="formEditUrl">Google Form edit URL (optional)</label>
+    <input id="formEditUrl" type="url" placeholder="https://docs.google.com/forms/d/.../edit">
+    <div class="hint">Saved for quick access from the extension setup page.</div>
+
+    <label for="sheetUrl">Google Sheet URL (optional)</label>
+    <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+    <div class="hint">The teacher dashboard already has an Open Google Sheet button when its Apps Script project is bound to the correct Sheet.</div>
+
+    <div class="row">
+      <button id="save" class="primary">Save settings</button>
+      <button id="capture" class="secondary">Use current Google tab</button>
+      <button id="openDashboard" class="secondary">Open dashboard</button>
+    </div>
+
+    <div id="status" aria-live="polite"></div>
+  </div>
+</main>
+<script src="options.js"></script>
+</body>
+</html>
