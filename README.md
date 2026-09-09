@@ -14,6 +14,9 @@ It provides a teacher dashboard with a short-lived dynamic QR code and a student
 - If the teacher page disappears, attendance becomes inactive after about 20 seconds
 - Live checked-in count on the teacher dashboard
 - Duplicate check-ins blocked per student ID per session
+- Download current session attendance as CSV while attendance is open
+- After closing attendance, download the most recent session as CSV
+- Open the backing Google Sheet directly from the teacher dashboard
 - Google Sheet stores:
   - Timestamp
   - Name
@@ -68,8 +71,12 @@ Open teacher dashboard
 → Dynamic QR appears
 → Students scan and check in
 → Live count updates
+→ Download CSV at any time if needed
 → Close Attendance
+→ Download last session CSV if needed
 ```
+
+The teacher dashboard also includes an **Open Google Sheet** button for viewing the full attendance history.
 
 ## Student workflow
 
@@ -83,6 +90,25 @@ Scan current QR
 ```
 
 The QR itself is valid only for the current 15-second time slot. After a successful QR validation, the student receives a temporary ticket valid for 180 seconds.
+
+## CSV download
+
+The teacher dashboard can download either:
+
+- the currently open attendance session, or
+- the most recently closed session.
+
+The generated CSV contains:
+
+```text
+Timestamp, Name, Student ID, Session ID
+```
+
+The CSV filename is based on the session ID, for example:
+
+```text
+CLASS-20260911-090000-attendance.csv
+```
 
 ## Important timing constants
 
