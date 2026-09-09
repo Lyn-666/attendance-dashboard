@@ -12,8 +12,10 @@ const DEFAULTS = {
 init();
 
 document.getElementById('save').addEventListener('click', saveSettings);
-document.getElementById('capture').addEventListener('click', captureCurrentGoogleTab);
 document.getElementById('openDashboard').addEventListener('click', openDashboard);
+document.getElementById('openForm').addEventListener('click', openForm);
+document.getElementById('openSheet').addEventListener('click', openSheet);
+document.getElementById('clear').addEventListener('click', clearSettings);
 
 async function init() {
   const settings = await chrome.storage.sync.get(DEFAULTS);
@@ -42,49 +44,21 @@ async function saveSettings() {
     return;
   }
 
-  await chrome.storage.sync.set({
-    teacherUrl,
-    formEditUrl,
-    sheetUrl
-  });
+  await chrome.storage.sync.set({ teacherUrl, formEditUrl, sheetUrl });
 
   teacherUrlInput.value = teacherUrl;
   formEditUrlInput.value = formEditUrl;
   sheetUrlInput.value = sheetUrl;
 
-  showStatus('Saved. Clicking the extension icon will now open the attendance dashboard.', true);
+  showStatus('Saved. Clicking the extension icon will open the attendance dashboard.', true);
 }
 
-async function captureCurrentGoogleTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs[0];
-
-  if (!tab || !tab.url) {
-    showStatus('Could not read the current tab.', false);
-    return;
-  }
-
-  const url = tab.url;
-
-  if (url.includes('docs.google.com/forms/')) {
-    formEditUrlInput.value = url;
-    showStatus('Captured the current Google Form URL. Save settings to keep it.', true);
-    return;
-  }
-
-  if (url.includes('docs.google.com/spreadsheets/')) {
-    sheetUrlInput.value = url;
-    showStatus('Captured the current Google Sheet URL. Save settings to keep it.', true);
-    return;
-  }
-
-  if (url.includes('script.google.com/') && url.includes('/exec')) {
-    teacherUrlInput.value = normalizeTeacherUrl(url) || url;
-    showStatus('Captured the current Apps Script dashboard URL. Save settings to keep it.', true);
-    return;
-  }
-
-  showStatus('Open your Google Form, Google Sheet, or deployed Apps Script dashboard first, then try again.', false);
+async function clearSettings() {
+  await chrome.storage.sync.clear();
+  teacherUrlInput.value = '';
+  formEditUrlInput.value = '';
+  sheetUrlInput.value = '';
+  showStatus('Saved settings cleared.', true);
 }
 
 async function openDashboard() {
@@ -97,6 +71,30 @@ async function openDashboard() {
   }
 
   await chrome.tabs.create({ url: teacherUrl });
+}
+
+async function openForm() {
+  const saved = await chrome.storage.sync.get(DEFAULTS);
+  const formUrl = normalizeGoogleUrl(formEditUrlInput.value || saved.formEditUrl, 'forms');
+
+  if (!formUrl) {
+    showStatus('Save a valid Google Form URL first.', false);
+    return;
+  }
+
+  await chrome.tabs.create({ url: formUrl });
+}
+
+async function openSheet() {
+  const saved = await chrome.storage.sync.get(DEFAULTS);
+  const sheetUrl = normalizeGoogleUrl(sheetUrlInput.value || saved.sheetUrl, 'spreadsheets');
+
+  if (!sheetUrl) {
+    showStatus('Save a valid Google Sheet URL first.', false);
+    return;
+  }
+
+  await chrome.tabs.create({ url: sheetUrl });
 }
 
 function normalizeTeacherUrl(value) {
@@ -118,10 +116,8 @@ function normalizeGoogleUrl(value, type) {
   try {
     const url = new URL(raw);
     if (url.hostname !== 'docs.google.com') return '';
-
     if (type === 'forms' && !url.pathname.startsWith('/forms/')) return '';
     if (type === 'spreadsheets' && !url.pathname.startsWith('/spreadsheets/')) return '';
-
     return url.toString();
   } catch (error) {
     return '';
