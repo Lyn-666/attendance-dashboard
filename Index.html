@@ -13,7 +13,7 @@
       color: #202124;
     }
     .page {
-      max-width: 620px;
+      max-width: 680px;
       margin: 40px auto;
       padding: 20px;
     }
@@ -48,6 +48,12 @@
       color: #5f6368;
       font-size: 14px;
     }
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
     input {
       width: 100%;
       padding: 14px;
@@ -67,6 +73,7 @@
       cursor: pointer;
     }
     .primary { background: #1a73e8; color: white; }
+    .secondary { background: #eef3f8; color: #174ea6; }
     .danger { background: #d93025; color: white; }
     button:disabled { opacity: 0.5; cursor: default; }
     .success {
@@ -83,6 +90,22 @@
       font-size: 22px;
       font-weight: bold;
     }
+    .divider {
+      border-top: 1px solid #e0e0e0;
+      margin: 24px 0;
+    }
+    .last-session {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 18px;
+      text-align: left;
+    }
+    @media (max-width: 560px) {
+      .button-row { grid-template-columns: 1fr; }
+      .page { margin: 10px auto; padding: 12px; }
+      .card { padding: 22px; }
+    }
   </style>
 </head>
 <body>
@@ -95,6 +118,15 @@
       <div id="closedView">
         <p>Attendance is currently closed.</p>
         <button id="startButton" class="primary" onclick="startAttendance()">Start Attendance</button>
+
+        <div id="lastSessionBox" class="last-session" style="display:none">
+          <strong>Last session</strong>
+          <div id="lastSessionName" class="small" style="margin-top:8px"></div>
+          <div style="margin-top:8px">Checked in: <strong id="lastSessionCount">0</strong></div>
+          <button id="downloadLastButton" class="secondary" onclick="downloadLastAttendance()">Download Last Attendance CSV</button>
+        </div>
+
+        <button id="openSheetClosedButton" class="secondary" onclick="openSheet()">Open Google Sheet</button>
       </div>
 
       <div id="openView" style="display:none">
@@ -102,6 +134,12 @@
         <div id="qrcode"></div>
         <p>Refreshing in <span id="countdown">15</span> seconds</p>
         <div class="count">Checked in: <span id="attendanceCount">0</span></div>
+
+        <div class="button-row">
+          <button id="downloadCurrentButton" class="secondary" onclick="downloadCurrentAttendance()">Download CSV</button>
+          <button id="openSheetButton" class="secondary" onclick="openSheet()">Open Google Sheet</button>
+        </div>
+
         <button id="closeButton" class="danger" onclick="closeAttendanceNow()">Close Attendance</button>
       </div>
 
@@ -136,6 +174,7 @@ let ticket = '';
 let lastSlot = null;
 let qrRefreshTimer = null;
 let heartbeatTimer = null;
+let teacherSheetUrl = '';
 
 if (teacher === '1') {
   document.getElementById('teacherPage').style.display = 'block';
@@ -153,12 +192,18 @@ if (teacher === '1') {
 function loadTeacherState() {
   google.script.run
     .withSuccessHandler(function(state) {
+      teacherSheetUrl = state.sheetUrl || '';
+      updateLastSession(state.lastSessionId, state.lastCount);
+
       if (state.status === 'OPEN') {
         showOpenState(state.sessionId, state.count);
         startTeacherTimers();
       } else {
         showClosedState();
       }
+    })
+    .withFailureHandler(function(error) {
+      showTeacherError(error.message || 'Unable to load teacher dashboard.');
     })
     .getTeacherState();
 }
@@ -187,8 +232,9 @@ function closeAttendanceNow() {
   button.innerText = 'Closing...';
 
   google.script.run
-    .withSuccessHandler(function() {
+    .withSuccessHandler(function(result) {
       stopTeacherTimers();
+      updateLastSession(result.lastSessionId, result.lastCount);
       showClosedState();
     })
     .withFailureHandler(function(error) {
@@ -226,6 +272,19 @@ function showClosedState() {
   lastSlot = null;
 }
 
+function updateLastSession(sessionId, count) {
+  const box = document.getElementById('lastSessionBox');
+
+  if (!sessionId) {
+    box.style.display = 'none';
+    return;
+  }
+
+  box.style.display = 'block';
+  document.getElementById('lastSessionName').innerText = sessionId;
+  document.getElementById('lastSessionCount').innerText = count || 0;
+}
+
 function startTeacherTimers() {
   stopTeacherTimers();
   sendHeartbeat();
@@ -261,7 +320,7 @@ function refreshQR() {
 function updateQR(data) {
   if (data.status !== 'OPEN') {
     stopTeacherTimers();
-    showClosedState();
+    loadTeacherState();
     return;
   }
 
@@ -284,6 +343,69 @@ function updateQR(data) {
   let remaining = Math.ceil((QR_INTERVAL_MS - elapsed) / 1000);
   if (remaining < 1) remaining = 1;
   document.getElementById('countdown').innerText = remaining;
+}
+
+function downloadCurrentAttendance() {
+  setDownloadButtonState('downloadCurrentButton', true, 'Preparing...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      setDownloadButtonState('downloadCurrentButton', false, 'Download CSV');
+      handleDownloadResult(result);
+    })
+    .withFailureHandler(function(error) {
+      setDownloadButtonState('downloadCurrentButton', false, 'Download CSV');
+      showTeacherError(error.message || 'Unable to prepare attendance download.');
+    })
+    .getCurrentSessionCSV();
+}
+
+function downloadLastAttendance() {
+  setDownloadButtonState('downloadLastButton', true, 'Preparing...');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      setDownloadButtonState('downloadLastButton', false, 'Download Last Attendance CSV');
+      handleDownloadResult(result);
+    })
+    .withFailureHandler(function(error) {
+      setDownloadButtonState('downloadLastButton', false, 'Download Last Attendance CSV');
+      showTeacherError(error.message || 'Unable to prepare attendance download.');
+    })
+    .getLastSessionCSV();
+}
+
+function handleDownloadResult(result) {
+  if (!result.success) {
+    showTeacherError(result.message || 'Unable to download attendance.');
+    return;
+  }
+
+  const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = result.filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function setDownloadButtonState(id, disabled, text) {
+  const button = document.getElementById(id);
+  if (!button) return;
+  button.disabled = disabled;
+  button.innerText = text;
+}
+
+function openSheet() {
+  if (!teacherSheetUrl) {
+    showTeacherError('Google Sheet URL is not available.');
+    return;
+  }
+
+  window.open(teacherSheetUrl, '_blank');
 }
 
 function showTeacherError(message) {
