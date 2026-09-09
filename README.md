@@ -2,7 +2,27 @@
 
 A lightweight classroom attendance tool built with **Google Apps Script + Google Sheets**.
 
-It provides a teacher dashboard with a short-lived dynamic QR code, a student check-in page, CSV export, and an optional installable PWA launcher for teachers.
+It provides a teacher dashboard with a short-lived dynamic QR code, student check-in, live attendance count, CSV export, and a Chrome extension launcher.
+
+## Recommended teacher workflow
+
+The recommended final setup is:
+
+```text
+Google Form / linked Google Sheet
+        ↓
+Google Apps Script attendance backend
+        ↓
+Chrome extension
+        ↓
+Teacher clicks extension icon
+        ↓
+QR dashboard opens immediately
+        ↓
+Start / Close attendance / Download CSV / Open Google Sheet
+```
+
+The extension is intentionally a launcher rather than a replacement for Google Sheets. Attendance data remains in the teacher's Google Sheet.
 
 ## Features
 
@@ -17,7 +37,7 @@ It provides a teacher dashboard with a short-lived dynamic QR code, a student ch
 - Download current session attendance as CSV while attendance is open
 - After closing attendance, download the most recent session as CSV
 - Open the backing Google Sheet directly from the teacher dashboard
-- Optional installable **PWA teacher launcher** hosted with GitHub Pages
+- Chrome extension for one-click access
 - Google Sheet stores:
   - Timestamp
   - Name
@@ -29,10 +49,11 @@ It provides a teacher dashboard with a short-lived dynamic QR code, a student ch
 - `Code.gs` — Google Apps Script backend
 - `Index.html` — teacher dashboard and student check-in UI
 - `appsscript.json` — Apps Script project manifest
-- `docs/index.html` — installable PWA launcher
-- `docs/manifest.webmanifest` — PWA manifest
-- `docs/service-worker.js` — PWA service worker
-- `docs/icon.svg` — app icon
+- `chrome-extension/manifest.json` — Chrome Extension Manifest V3
+- `chrome-extension/background.js` — one-click dashboard launcher
+- `chrome-extension/options.html` — one-time extension setup page
+- `chrome-extension/options.js` — settings and Google-tab capture logic
+- `docs/` — older optional PWA launcher; the Chrome extension is now the recommended teacher launcher
 
 ## Apps Script setup
 
@@ -58,63 +79,66 @@ It provides a teacher dashboard with a short-lived dynamic QR code, a student ch
 
 When you change `Code.gs` or `Index.html`, create a **new deployment version** before using the updated `/exec` URL.
 
-## Teacher URL
+## Teacher dashboard URL
 
-Add `?teacher=1` to the Web App URL:
+The extension automatically adds `teacher=1`, so you may save either the plain `/exec` URL or the full teacher URL:
 
 ```text
 https://script.google.com/.../exec?teacher=1
 ```
 
-The teacher workflow is:
+The dashboard includes:
 
 ```text
-Open teacher dashboard
-→ Start Attendance
-→ Dynamic QR appears
-→ Students scan and check in
-→ Live count updates
-→ Download CSV at any time if needed
-→ Close Attendance
-→ Download last session CSV if needed
+Start Attendance
+Dynamic QR
+Live checked-in count
+Download CSV
+Open Google Sheet
+Close Attendance
+Download Last Attendance CSV
 ```
 
-The teacher dashboard also includes an **Open Google Sheet** button for viewing the full attendance history.
+## Install the Chrome extension locally
 
-## Installable teacher app (PWA)
+Until the extension is published in the Chrome Web Store, install it as an unpacked extension:
 
-The `docs/` folder contains a small Progressive Web App launcher. It does not store attendance data. It simply remembers the teacher's deployed Apps Script dashboard URL in that browser and opens the dashboard in an app-like window.
+1. Download or clone this repository.
+2. Open Chrome and go to `chrome://extensions`.
+3. Turn on **Developer mode**.
+4. Click **Load unpacked**.
+5. Select the `chrome-extension` folder from this repository.
+6. Pin **Attendance Dashboard Launcher** to the Chrome toolbar.
 
-### Enable GitHub Pages
+## One-time extension setup
 
-In the GitHub repository:
+The first time you click the extension icon, its setup page opens because no dashboard URL is saved yet.
 
-1. Open **Settings → Pages**.
-2. Under **Build and deployment**, choose **Deploy from a branch**.
-3. Select branch **main** and folder **/docs**.
-4. Save.
-5. Wait for GitHub Pages to publish the site.
+Enter:
 
-The launcher URL will normally be:
+- the deployed Apps Script teacher dashboard URL — required
+- the Google Form edit URL — optional convenience link
+- the linked Google Sheet URL — optional convenience link
+
+You can also use **Use current Google tab** while viewing a Google Form, Google Sheet, or deployed Apps Script dashboard to capture that URL.
+
+After saving, clicking the extension icon opens the teacher dashboard directly in a new Chrome tab.
+
+## Important limitation: creating a new Google Form
+
+The Chrome extension does **not** currently create or deploy the Apps Script backend automatically from an arbitrary newly created Google Form. Automating that would require a substantially broader Google OAuth integration with Forms, Sheets, Drive, and Apps Script APIs and may be restricted by institutional Google Workspace policy.
+
+The practical supported workflow is therefore:
 
 ```text
-https://lyn-666.github.io/attendance-dashboard/
+Create Google Form
+→ Link it to a Google Sheet if desired
+→ Set up/deploy the attendance Apps Script once for that Sheet
+→ Save the teacher dashboard URL in the extension once
+→ After that, click the extension icon for one-click classroom use
 ```
 
-### First-time PWA setup
-
-1. Open the GitHub Pages launcher.
-2. Paste your deployed teacher URL ending in `/exec?teacher=1`.
-3. Click **Save & Open**.
-4. In a supported browser, choose **Install App** when offered, or use the browser's install/add-to-home-screen action.
-
-After that, the teacher can launch **Attendance Dashboard** from the desktop, taskbar, Start menu, or phone home screen like a normal app.
-
-### Important PWA note
-
-The PWA shell is hosted on GitHub Pages, while the real teacher dashboard is hosted by Google Apps Script. If your institution blocks Google authentication inside an iframe or blocks third-party cookies, use the Apps Script teacher URL directly instead. The core attendance system does not depend on the PWA launcher.
-
-The service worker caches only the PWA shell assets. The attendance dashboard itself remains online-only so the teacher always sees live session state.
+The current QR attendance submission UI is provided by the Apps Script dashboard itself. The Google Form can remain as an administrative/roster form, but it is not required for the dynamic QR check-in flow.
 
 ## Student workflow
 
@@ -176,7 +200,7 @@ Avoid committing student attendance data to this repository. Attendance records 
 
 If this repository is public, do not add Spreadsheet IDs, deployment secrets, student names, student IDs, or exported attendance records.
 
-The PWA saves the teacher Web App URL only in browser `localStorage`; it is not committed back to this repository.
+The Chrome extension stores teacher URLs in Chrome synchronized extension storage; it does not upload attendance data to this repository.
 
 ## Notes
 
